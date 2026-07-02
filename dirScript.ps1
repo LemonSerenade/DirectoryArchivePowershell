@@ -17,7 +17,7 @@ $txtSrcFolder = New-Object System.Windows.Forms.TextBox
 $txtSrcFolder.Top = 20
 $txtSrcFolder.Left = 110
 $txtSrcFolder.Width = 250
-$txtSrcFolder.Text = "D:\Pictures 05092024"
+$txtSrcFolder.Text = "C:\Users\User\Videos"
 $form.Controls.Add($txtSrcFolder)
 
 $srcBtnBrowse = New-Object System.Windows.Forms.Button
@@ -46,7 +46,7 @@ $txtDestFolder = New-Object System.Windows.Forms.TextBox
 $txtDestFolder.Top = 50
 $txtDestFolder.Left = 110
 $txtDestFolder.Width = 250
-$txtDestFolder.Text = "D:\Pictures 05092024"
+$txtDestFolder.Text = "C:\Users\User\Videos"
 $form.Controls.Add($txtDestFolder)
 
 $destBtnBrowse = New-Object System.Windows.Forms.Button
@@ -69,10 +69,17 @@ $chkboxSize.Text = "Include file size"
 $chkboxSize.Top = 80
 $chkboxSize.Left = 10
 $form.Controls.Add($chkboxSize)
+
+$chkboxTree = New-Object System.Windows.Forms.CheckBox
+$chkboxTree.Text = "Include Tree of Directory"
+$chkboxTree.Top = 80
+$chkboxTree.Left = 140
+$chkboxTree.Width = 200
+$form.Controls.Add($chkboxTree)
 #---- Parameters End --------------
 
 $FileNumLabel = New-object System.Windows.Forms.Label
-$FileNumLabel.Text = "Output File Number:"
+$FileNumLabel.Text = "Output File Mode:"
 $FileNumLabel.Top = 110
 $FileNumLabel.Left = 10
 $FileNumLabel.Width = 110
@@ -98,12 +105,12 @@ $cmbFileType = New-Object System.Windows.Forms.ComboBox
 $cmbFileType.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
 $cmbFileType.Top = 135
 $cmbFileType.Left = 120
-$cmbFileType.Items.AddRange(@("TXT","CSV"))
+$cmbFileType.Items.AddRange(@("txt","csv"))
 $cmbFileType.SelectedIndex = 0
 $form.Controls.Add($cmbFileType)
 
 $FileRecurseLabel = New-Object System.Windows.Forms.Label
-$FileRecurseLabel.Text = "Folders to list:"
+$FileRecurseLabel.Text = "Folder Scope:"
 $FileRecurseLabel.Top = 170
 $FileRecurseLabel.Left = 10
 $form.Controls.Add($FileRecurseLabel)
@@ -118,10 +125,6 @@ $form.Controls.Add($cmbFileRecurse)
 
 
 #--------- Output File END -----------
-
-
-
-
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = "Generate"
 $btnRun.Top = 200
@@ -142,43 +145,100 @@ $btnRun.Add_Click({
     [System.Windows.Forms.MessageBox]::Show(
         "Would run script on:`n$SourcePath and Output File at: `n$DestPath"
     )
-
-    # chcp 65001 # Used back when this was run debug on powershell
-
     $Date = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    # $RootPath = "D:\Pictures" #Old Root Path default
 
     # Root and/or subfolders
     switch($FolderScope){
         "Root Only"{$Folders = @(Get-Item $SourcePath)}
         "Root and Subfolders"{
             $Folders = @(
-                Get-Item $SourcePath
-                Get-ChildItem -Path $SourcePath -Directory -Recurse
+                Get-Item $SourcePath 
+                Get-ChildItem -Path $SourcePath -Directory -Recurse | Sort-Object FullName
             )
         }
-        "Subfolders of root" {$Folders = Get-ChildItem -Path $SourcePath -Directory -Recurse}
+        "Subfolders of root" {$Folders = Get-ChildItem -Path $SourcePath -Directory -Recurse| Sort-Object FullName}
        
     }
+    $FileDetails =@("Name","CreationTime","LastWriteTime")
+    if($includeSize){$FileDetails +=@{Name="SizeBytes"; Expression={$_.Length}}}
+    $RootFolderPath = (Split-Path $SourcePath -Leaf) -replace '[:\\/*?"<>|\[\]]', '_'
+    $IsSingleFile = ($OutputMode -eq "One")
 
-    $Folders | ForEach-Object {
-        $FolderPath = $_.FullName
-        $RelativeName = $_.FullName.Replace($SourcePath, "").TrimStart('\')
+    if($FileType -eq "txt"){
+        if ($IsSingleFile){
+            $FinalOutput = Join-Path $DestPath "directory_list_${RootFolderPath}_$Date.txt"
 
-        #Root
-        if ([string]::IsNullOrWhiteSpace($RelativeName)) {$SafeName = Split-Path $SourcePath -Leaf}
-        else {$SafeName = ($RelativeName -replace '[:\\/*?"<>|\[\]]', '_')}
+            $Folders | ForEach-Object{
+                $FolderPath = $_.FullName
+            
+                $header = @(
+                "=============="
+                "Folder : $FolderPath"
+                "=============="
+                )
 
-        $OutputFile = Join-Path $DestPath "directory_list_${SafeName}_$Date.txt"
+                $header | Out-File -Encoding utf8 -Append -FilePath $FinalOutput
+                Get-ChildItem -Path $FolderPath -File |
+                Select-Object $FileDetails | 
+                Format-List -Property * | 
+                Out-File -Encoding utf8 -Append -FilePath $FinalOutput
+            }
 
-        $FileDetails = @("FullName","CreationTime","LastWriteTime")
-        if($includeSize) {$FileDetails += @{Name='SizeBytes';Expression={$_.Length}}}
+        }else{
+            $Folders | ForEach-Object {
+                $FolderPath = $_.FullName
+                $RelativeName = $_.FullName.Replace($SourcePath, "").TrimStart('\')
 
-        Get-ChildItem -Path $FolderPath -File | 
-        Select-Object $FileDetails | 
-        Format-List -Property * | 
-        Out-File -Encoding UTF8 $OutputFile
+                if ([string]::IsNullOrWhiteSpace($RelativeName)) {$SafeName = Split-Path $SourcePath -Leaf}
+                else {$SafeName = ($RelativeName -replace '[:\\/*?"<>|\[\]]', '_')}
+
+                $OutputFile = Join-Path $DestPath "directory_list_${SafeName}_$Date.txt"
+
+                Get-ChildItem -Path $FolderPath -File | 
+                Select-Object $FileDetails | 
+                Format-List -Property * | 
+                Out-File -Encoding UTF8 $OutputFile 
+            }    
+        }
+    }else{#csv
+        if ($IsSingleFile){
+            $FinalOutput = Join-Path $DestPath "directory_list_${RootFolderPath}_$Date.csv"
+            $Folders | ForEach-Object{
+                $FolderPath = $_.FullName
+                Get-ChildItem -Path $FolderPath -File |
+                Select-Object @{
+                    Name="Path"
+                    Expression={$FolderPath}
+                }, Name, CreationTime, LastWriteTime, Length |
+                Export-Csv -Path $FinalOutput -NoTypeInformation -Append -Encoding utf8
+            }
+
+        }
+        else{
+            $Folders | ForEach-Object{
+                $FolderPath =$_.FullName
+                $RelativeName = $_.FullName.Replace($SourcePath, "").TrimStart('\')
+                if ([string]::IsNullOrWhiteSpace($RelativeName)) {$SafeName = Split-Path $SourcePath -Leaf}
+                    else {$SafeName = ($RelativeName -replace '[:\\/*?"<>|\[\]]', '_')}
+
+                $OutputFile = Join-Path $DestPath "directory_list_${SafeName}_$Date.csv"
+                Get-ChildItem -Path $FolderPath -File | 
+                Select-Object @{
+                        Name="Path"
+                        Expression={$FolderPath}
+                    }, Name, CreationTime, LastWriteTime, Length | 
+                #Format-List -Property * | 
+                Export-Csv -Path $OutputFile -NoTypeInformation -Encoding utf8
+
+            }
+        }
     }
+
+
+
+    
+
+
  })
 
 $form.ShowDialog()
