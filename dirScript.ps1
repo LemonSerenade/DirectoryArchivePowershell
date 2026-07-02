@@ -164,18 +164,18 @@ $btnRun.Add_Click({
     $IsSingleFile = ($OutputMode -eq "One")
 
     if($FileType -eq "txt"){
+
         if ($IsSingleFile){
             $FinalOutput = Join-Path $DestPath "directory_list_${RootFolderPath}_$Date.txt"
 
             $Folders | ForEach-Object{
                 $FolderPath = $_.FullName
-            
                 $header = @(
                 "=============="
                 "Folder : $FolderPath"
                 "=============="
                 )
-
+                
                 $header | Out-File -Encoding utf8 -Append -FilePath $FinalOutput
                 Get-ChildItem -Path $FolderPath -File |
                 Select-Object $FileDetails | 
@@ -184,28 +184,26 @@ $btnRun.Add_Click({
             }
 
         }else{
-            $AllFiles = foreach ($folder in $Folders) {
+            $Folders | ForEach-Object {
+                $FolderPath = $_.FullName
 
-            $FolderPath = $folder.FullName
-            $files = Get-ChildItem -Path $FolderPath -File -ErrorAction SilentlyContinue
+                $RelativeName = $_.FullName.Replace($SourcePath, "").TrimStart('\')
 
-            if ($files.Count -eq 0) {
-                [PSCustomObject]@{
-                    Path          = $FolderPath
-                    Name          = $null
-                    CreationTime  = $null
-                    LastWriteTime = $null
-                    Length        = $null
-                }
-            }
-            else {
-                $files | Select-Object @{
-                    Name="Path"; Expression={$FolderPath}
-                }, Name, CreationTime, LastWriteTime, Length
-            }
-            }
+                if ([string]::IsNullOrWhiteSpace($RelativeName)) {$SafeName = Split-Path $SourcePath -Leaf}
+                else {$SafeName = ($RelativeName -replace '[:\\/*?"<>|\[\]]', '_')}
 
-            $AllFiles | Export-Csv -Path $FinalOutput -NoTypeInformation -Encoding utf8   
+                $OutputFile = Join-Path $DestPath "directory_list_${SafeName}_$Date.txt"
+                                $header = @(
+                "=============="
+                "Folder : $FolderPath"
+                "=============="
+                )
+                $header | Out-File -Encoding utf8 -FilePath $OutputFile
+                Get-ChildItem -Path $FolderPath -File | 
+                Select-Object $FileDetails | 
+                Format-List -Property * | 
+                Out-File -Encoding UTF8 -Append -FilePath $OutputFile 
+            }     
         }
     }else{#csv
         if ($IsSingleFile){
