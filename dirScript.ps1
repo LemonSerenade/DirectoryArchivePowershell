@@ -151,10 +151,9 @@ $btnRun.Add_Click({
     switch($FolderScope){
         "Root Only"{$Folders = @(Get-Item $SourcePath)}
         "Root and Subfolders"{
-            $Folders = @(
-                Get-Item $SourcePath 
-                Get-ChildItem -Path $SourcePath -Directory -Recurse | Sort-Object FullName
-            )
+            $Folders = @()
+            $Folders += Get-Item $SourcePath
+            $Folders += Get-ChildItem -Path $SourcePath -Directory -Recurse | Sort-Object FullName
         }
         "Subfolders of root" {$Folders = Get-ChildItem -Path $SourcePath -Directory -Recurse| Sort-Object FullName}
        
@@ -185,33 +184,59 @@ $btnRun.Add_Click({
             }
 
         }else{
-            $Folders | ForEach-Object {
-                $FolderPath = $_.FullName
-                $RelativeName = $_.FullName.Replace($SourcePath, "").TrimStart('\')
+            $AllFiles = foreach ($folder in $Folders) {
 
-                if ([string]::IsNullOrWhiteSpace($RelativeName)) {$SafeName = Split-Path $SourcePath -Leaf}
-                else {$SafeName = ($RelativeName -replace '[:\\/*?"<>|\[\]]', '_')}
+            $FolderPath = $folder.FullName
+            $files = Get-ChildItem -Path $FolderPath -File -ErrorAction SilentlyContinue
 
-                $OutputFile = Join-Path $DestPath "directory_list_${SafeName}_$Date.txt"
+            if ($files.Count -eq 0) {
+                [PSCustomObject]@{
+                    Path          = $FolderPath
+                    Name          = $null
+                    CreationTime  = $null
+                    LastWriteTime = $null
+                    Length        = $null
+                }
+            }
+            else {
+                $files | Select-Object @{
+                    Name="Path"; Expression={$FolderPath}
+                }, Name, CreationTime, LastWriteTime, Length
+            }
+            }
 
-                Get-ChildItem -Path $FolderPath -File | 
-                Select-Object $FileDetails | 
-                Format-List -Property * | 
-                Out-File -Encoding UTF8 $OutputFile 
-            }    
+            $AllFiles | Export-Csv -Path $FinalOutput -NoTypeInformation -Encoding utf8   
         }
     }else{#csv
         if ($IsSingleFile){
             $FinalOutput = Join-Path $DestPath "directory_list_${RootFolderPath}_$Date.csv"
-            $Folders | ForEach-Object{
-                $FolderPath = $_.FullName
-                Get-ChildItem -Path $FolderPath -File |
-                Select-Object @{
-                    Name="Path"
-                    Expression={$FolderPath}
-                }, Name, CreationTime, LastWriteTime, Length |
-                Export-Csv -Path $FinalOutput -NoTypeInformation -Append -Encoding utf8
+            $AllFiles = foreach ($folder in $Folders) {
+
+                $FolderPath = $folder.FullName
+                $files = Get-ChildItem -Path $FolderPath -File -ErrorAction SilentlyContinue
+
+                # always emit folder row
+                [PSCustomObject]@{
+                    Path          = $FolderPath
+                    Name          = "<FOLDER>"
+                    CreationTime  = $folder.CreationTime
+                    LastWriteTime = $folder.LastWriteTime
+                    Length        = $null
+                }
+
+                # emit files (if any)
+                foreach ($file in $files) {
+                    [PSCustomObject]@{
+                        Path          = $FolderPath
+                        Name          = $file.Name
+                        CreationTime  = $file.CreationTime
+                        LastWriteTime = $file.LastWriteTime
+                        Length        = $file.Length
+                    }
+                }
             }
+
+            $AllFiles | Export-Csv -Path $FinalOutput -NoTypeInformation -Encoding utf8
 
         }
         else{
