@@ -221,7 +221,15 @@ $btnRun.Add_Click({
                     LastWriteTime = $folder.LastWriteTime
                     Length        = $null
                 }
-
+                if ($files.Count -eq 0) {
+                    [PSCustomObject]@{
+                        Path          = $FolderPath
+                        Name          = "EMPTY"
+                        CreationTime  = $null
+                        LastWriteTime = $null
+                        Length        = $null
+                    }
+                }else{
                 # emit files (if any)
                 foreach ($file in $files) {
                     [PSCustomObject]@{
@@ -232,12 +240,13 @@ $btnRun.Add_Click({
                         Length        = $file.Length
                     }
                 }
+                }
             }
 
             $AllFiles | Export-Csv -Path $FinalOutput -NoTypeInformation -Encoding utf8
 
         }
-        else{
+        else{#csv multiple files
             $Folders | ForEach-Object{
                 $FolderPath =$_.FullName
                 $RelativeName = $_.FullName.Replace($SourcePath, "").TrimStart('\')
@@ -245,13 +254,42 @@ $btnRun.Add_Click({
                     else {$SafeName = ($RelativeName -replace '[:\\/*?"<>|\[\]]', '_')}
 
                 $OutputFile = Join-Path $DestPath "directory_list_${SafeName}_$Date.csv"
-                Get-ChildItem -Path $FolderPath -File | 
-                Select-Object @{
-                        Name="Path"
-                        Expression={$FolderPath}
-                    }, Name, CreationTime, LastWriteTime, Length | 
-                #Format-List -Property * | 
-                Export-Csv -Path $OutputFile -NoTypeInformation -Encoding utf8
+                $files = Get-ChildItem -Path $FolderPath -File -ErrorAction SilentlyContinue
+                $OutputData = @()
+
+                $folderInfo = Get-Item $FolderPath
+
+                $OutputData += [PSCustomObject]@{
+                    Path          = $FolderPath
+                    Name          = "<FOLDER>"
+                    CreationTime  = $folderInfo.CreationTime
+                    LastWriteTime = $folderInfo.LastWriteTime
+                    Length        = ""
+                }
+
+                if ($files) {
+                    foreach ($file in $files) {
+                        $OutputData += [PSCustomObject]@{
+                            Path          = $FolderPath
+                            Name          = $file.Name
+                            CreationTime  = $file.CreationTime
+                            LastWriteTime = $file.LastWriteTime
+                            Length        = $file.Length
+                        }
+                    }
+                }
+                else {
+                    $OutputData += [PSCustomObject]@{
+                        Path          = $FolderPath
+                        Name          = "EMPTY"
+                        CreationTime  = ""
+                        LastWriteTime = ""
+                        Length        = ""
+                    }
+                }
+
+                $OutputData | Export-Csv -Path $OutputFile -NoTypeInformation -Encoding utf8
+                                
 
             }
         }
