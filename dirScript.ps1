@@ -170,9 +170,14 @@ $btnRun.Add_Click({
 
             $Folders | ForEach-Object{
                 $FolderPath = $_.FullName
+                $folderInfo = Get-Item $FolderPath
                 $header = @(
                 "=============="
                 "Folder : $FolderPath"
+                "=============="
+                "Path          : $($folderInfo.FullName)"
+                "Creation Time : $($folderInfo.CreationTime)"
+                "Last Modified : $($folderInfo.LastWriteTime)"
                 "=============="
                 )
                 
@@ -186,6 +191,7 @@ $btnRun.Add_Click({
         }else{
             $Folders | ForEach-Object {
                 $FolderPath = $_.FullName
+                $folderInfo = Get-Item $FolderPath
 
                 $RelativeName = $_.FullName.Replace($SourcePath, "").TrimStart('\')
 
@@ -196,6 +202,10 @@ $btnRun.Add_Click({
                                 $header = @(
                 "=============="
                 "Folder : $FolderPath"
+                "=============="
+                "Path          : $($folderInfo.FullName)"
+                "Creation Time : $($folderInfo.CreationTime)"
+                "Last Modified : $($folderInfo.LastWriteTime)"
                 "=============="
                 )
                 $header | Out-File -Encoding utf8 -FilePath $OutputFile
