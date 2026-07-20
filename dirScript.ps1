@@ -174,7 +174,7 @@ $btnRun.Add_Click({
                 $header = @(
                 "=============="
                 "Folder : $FolderPath"
-                "=============="
+                "--------------"
                 "Path          : $($folderInfo.FullName)"
                 "Creation Time : $($folderInfo.CreationTime)"
                 "Last Modified : $($folderInfo.LastWriteTime)"
@@ -200,9 +200,9 @@ $btnRun.Add_Click({
 
                 $OutputFile = Join-Path $DestPath "directory_list_${SafeName}_$Date.txt"
                                 $header = @(
-                "=============="
+                "--------------"
                 "Folder : $FolderPath"
-                "=============="
+                "--------------"
                 "Path          : $($folderInfo.FullName)"
                 "Creation Time : $($folderInfo.CreationTime)"
                 "Last Modified : $($folderInfo.LastWriteTime)"
@@ -304,11 +304,6 @@ $btnRun.Add_Click({
             }
         }
     }
-
-
-
-    
-
 
  })
 
