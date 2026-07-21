@@ -205,9 +205,20 @@ $btnRun.Add_Click({
                 )
                 
                 $header | Out-File -Encoding utf8 -Append -FilePath $FinalOutput
-                Get-ChildItem -Path $FolderPath -File |
-                Select-Object $FileDetails | 
-                Format-List -Property * | 
+                Get-ChildItem -Path $FolderPath |
+                Select-Object Name,
+                    @{Name="Type";Expression={if($_.PSIsContainer){"<FOLDER>"}else{"<FILE>"}}},
+                    @{Name="SizeBytes";Expression={
+                        if($_.PSIsContainer){
+                            (Get-ChildItem $_.FullName -File -Recurse -ErrorAction SilentlyContinue |
+                            Measure-Object Length -Sum).Sum
+                        } else {
+                            $_.Length
+                        }
+                    }},
+                    CreationTime,
+                    LastWriteTime |
+                Format-List |
                 Out-File -Encoding utf8 -Append -FilePath $FinalOutput
             } 
             if($includeTree){
