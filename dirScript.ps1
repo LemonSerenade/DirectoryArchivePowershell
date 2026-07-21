@@ -131,12 +131,35 @@ $btnRun.Top = 200
 $btnRun.Left = 100
 $form.Controls.Add($btnRun)
 
+function Export-DirectoryTree {
+    param(
+        [string]$SourcePath,
+        [string]$OutputFile,
+        [switch]$Append
+    )
+
+    $Header = @(
+        "==============="
+        "DIRECTORY TREE"
+        "==============="
+    )
+
+    if($Append){
+        $Header | Out-File -FilePath $OutputFile -Append -Encoding UTF8
+        tree $SourcePath /F /A | Out-File -FilePath $OutputFile -Append -Encoding UTF8
+    }
+    else {
+        $Header | Out-File -FilePath $OutputFile -Encoding UTF8
+        tree $SourcePath /F /A | Out-File -FilePath $OutputFile -Append -Encoding UTF8
+    }
+}
 
 $btnRun.Add_Click({
     $SourcePath = $txtSrcFolder.Text
     $DestPath = $txtDestFolder.Text
 
     $includeSize =$chkboxSize.Checked
+    $includeTree = $chkboxTree.Checked
     $FolderScope = $cmbFileRecurse.SelectedItem
     $OutputMode = $cmbFileNum.SelectedItem
     $FileType = $cmbFileType.SelectedItem
@@ -186,6 +209,9 @@ $btnRun.Add_Click({
                 Select-Object $FileDetails | 
                 Format-List -Property * | 
                 Out-File -Encoding utf8 -Append -FilePath $FinalOutput
+            } 
+            if($includeTree){
+                Export-DirectoryTree $SourcePath $FinalOutput -Append
             }
 
         }else{
@@ -213,6 +239,9 @@ $btnRun.Add_Click({
                 Select-Object $FileDetails | 
                 Format-List -Property * | 
                 Out-File -Encoding UTF8 -Append -FilePath $OutputFile 
+            }
+            if($includeTree){
+                Export-DirectoryTree $SourcePath (Join-Path $DestPath "directory_tree_${RootFolderPath}_$Date.txt")
             }     
         }
     }else{#csv
@@ -254,6 +283,9 @@ $btnRun.Add_Click({
             }
 
             $AllFiles | Export-Csv -Path $FinalOutput -NoTypeInformation -Encoding utf8
+            if($includeTree){
+                Export-DirectoryTree $SourcePath (Join-Path $DestPath "directory_tree_${RootFolderPath}_$Date.txt")
+            }  
 
         }
         else{#csv multiple files
@@ -302,6 +334,9 @@ $btnRun.Add_Click({
                                 
 
             }
+            if($includeTree){
+                Export-DirectoryTree $SourcePath (Join-Path $DestPath "directory_tree_${RootFolderPath}_$Date.txt")
+            }  
         }
     }
 
